@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>CATATAN TUGAS</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: linear-gradient(to bottom, #2c3e50, #3498db);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .card {
+      background: rgba(0, 0, 0, 0.6);
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 0 15px cyan;
+      width: 360px;
+      text-align: center;
+    }
+
+    input, button {
+      width: 90%;
+      padding: 10px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 8px;
+    }
+
+    button {
+      background: cyan;
+      color: black;
+      cursor: pointer;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+      margin-top: 15px;
+    }
+
+    li {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 10px;
+      margin: 5px 0;
+      border-radius: 8px;
+      position: relative;
+    }
+
+    li.completed {
+      text-decoration: line-through;
+      opacity: 0.6;
+    }
+
+    li span {
+      position: absolute;
+      right: 10px;
+      cursor: pointer;
+      color: red;
+    }
+
+    small {
+      display: block;
+      font-size: 0.8em;
+      color: #ccc;
+      text-align: left;
+    }
+
+    footer {
+      margin-top: 20px;
+      font-size: 0.8em;
+      color: #ddd;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h2>CATATAN TUGAS</h2>
+
+    <!-- Form Akun -->
+    <div id="formAkun">
+      <input type="text" id="akunBaru" placeholder="Nama akun baru">
+      <button onclick="tambahAkun()">➕ Tambah Akun</button>
+    </div>
+
+    <!-- Form Tugas -->
+    <div id="formTugas" style="display:none;">
+      <input type="text" id="judul" placeholder="Judul tugas">
+      <input type="text" id="deskripsi" placeholder="Deskripsi tugas">
+      <input type="datetime-local" id="waktuPengingat" placeholder="Waktu Pengingat">
+      <button onclick="tambahTugas()">Tambah Tugas</button>
+    </div>
+
+    <ul id="daftarTugas"></ul>
+  </div>
+
+  <footer>
+    &copy; 2025 King Vin. All rights reserved.
+  </footer>
+
+  <script>
+    let data = JSON.parse(localStorage.getItem("todoMultiAkun")) || {};
+    let akunAktif = null;
+
+    const daftarTugas = document.getElementById("daftarTugas");
+    const formTugas = document.getElementById("formTugas");
+    const formAkun = document.getElementById("formAkun");
+
+    function simpan() {
+      localStorage.setItem("todoMultiAkun", JSON.stringify(data));
+    }
+
+    function tampilkanTugas() {
+      daftarTugas.innerHTML = "";
+      if (!akunAktif || !data[akunAktif]) return;
+
+      data[akunAktif].forEach((tugas, index) => {
+        const li = document.createElement("li");
+        li.innerHTML = `<strong>${tugas.judul}</strong><small>${tugas.deskripsi}</small>`;
+        if (tugas.selesai) li.classList.add("completed");
+
+        li.onclick = () => {
+          tugas.selesai = !tugas.selesai;
+          simpan();
+          tampilkanTugas();
+        };
+
+        const del = document.createElement("span");
+        del.textContent = "❌";
+        del.onclick = (e) => {
+          e.stopPropagation();
+          data[akunAktif].splice(index, 1);
+          simpan();
+          tampilkanTugas();
+        };
+
+        li.appendChild(del);
+        daftarTugas.appendChild(li);
+      });
+    }
+
+    function tambahAkun() {
+      const nama = document.getElementById("akunBaru").value.trim();
+      if (!nama) return alert("Isi nama akun dulu!");
+
+      if (!data[nama]) {
+        data[nama] = [];
+        akunAktif = nama;
+        simpan();
+      } else {
+        akunAktif = nama;
+        alert("Akun sudah ada, langsung masuk.");
+      }
+
+      formAkun.style.display = "none";
+      formTugas.style.display = "block";
+
+      document.getElementById("akunBaru").value = "";
+      tampilkanTugas();
+    }
+
+    function tambahTugas() {
+      const judul = document.getElementById("judul").value.trim();
+      const deskripsi = document.getElementById("deskripsi").value.trim();
+      const waktu = document.getElementById("waktuPengingat").value;
+      if (!judul || !deskripsi || !waktu) return alert("Isi semua kolom tugas!");
+
+      const tugasBaru = { judul, deskripsi, waktu, selesai: false };
+      data[akunAktif].push(tugasBaru);
+      simpan();
+      tampilkanTugas();
+
+      document.getElementById("judul").value = "";
+      document.getElementById("deskripsi").value = "";
+      document.getElementById("waktuPengingat").value = "";
+
+      aturPengingat(tugasBaru);
+    }
+
+    function aturPengingat(tugas) {
+      const targetWaktu = new Date(tugas.waktu).getTime();
+      const sekarang = Date.now();
+      const delay = targetWaktu - sekarang;
+
+      if (delay > 0) {
+        setTimeout(() => {
+          kirimNotifikasi(tugas.judul, tugas.deskripsi);
+        }, delay);
+      }
+    }
+
+    function kirimNotifikasi(judul, deskripsi) {
+      if (Notification.permission === "granted") {
+        new Notification("📌 Pengingat Tugas", {
+          body: `${judul}: ${deskripsi}`,
+          icon: "https://cdn-icons-png.flaticon.com/512/845/845646.png"
+        });
+      } else if (Notification.permission !== "denied") {
+        Notification.requestPermission().then(permission => {
+          if (permission === "granted") {
+            kirimNotifikasi(judul, deskripsi);
+          }
+        });
+      }
+    }
+
+    if (Notification.permission !== "granted") {
+      Notification.requestPermission();
+    }
+  </script>
+
+</body>
+</html>
